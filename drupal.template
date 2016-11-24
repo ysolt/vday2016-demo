@@ -1,0 +1,88 @@
+{ "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "AWS CloudFormation template to create a Drupal instance",
+
+  "Mappings" : {
+    "RegionMap" : {
+      "eu-central-1"   : { "AMI" : "ami-a0fd39cf" }
+    }
+  },
+
+
+  "Parameters" : {
+
+    "DrupalInstanceType" : {
+      "Type" : "String",
+      "Description" : "Drupal EC2 instance type",
+      "Default" : "t2.medium",
+      "AllowedValues" : [
+          "t2.micro","t2.small","t2.medium","t2.large","m4.large","m4.xlarge","m4.2xlarge","m4.4xlarge","m4.10xlarge","m3.medium","m3.large","m3.xlarge","m3.2xlarge","c4.large","c4.xlarge","c4.2xlarge","c4.4xlarge","c4.8xlarge","c3.large","c3.xlarge","c3.2xlarge","c3.4xlarge","c3.8xlarge","r3.large","r3.xlarge","r3.2xlarge","r3.4xlarge","r3.8xlarge","i2.xlarge","i2.2xlarge","i2.4xlarge","i2.8xlarge" ],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+
+    "KeyName" : {
+      "Type" : "String",
+      "Description" : "Name of an existing EC2 KeyPair to enable SSH access to the Drupal instances"
+    }
+
+  },
+
+  "Resources" : {
+
+    "DrupalSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Drupal specific configuration",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "22",   "ToPort" : "22"   , "CidrIp" : "0.0.0.0/0"},
+          { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80" , "CidrIp" : "0.0.0.0/0"}
+        ]
+      }
+    },
+
+    "DrupalInstance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "ImageId" : { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI" ]},
+        "InstanceType" : { "Ref" : "DrupalInstanceType" },
+        "KeyName" : { "Ref" : "KeyName" },
+        "SecurityGroupIds" : [ { "Fn::GetAtt" : ["DrupalSecurityGroup", "GroupId"] } ],
+        "BlockDeviceMappings" :  [
+          {
+            "DeviceName" : "/dev/sda1",
+            "Ebs" : {
+              "VolumeType" : "gp2",
+              "VolumeSize" : "8"
+            }
+          }
+        ],
+        "Tags" : [ { "Key" : "Name", "Value" : { "Fn::Join" : ["", [ "Drupal Instance - ", { "Ref" : "AWS::StackName" } ] ] } } ]
+      }
+    }
+
+
+  },
+
+  "Outputs" : {
+
+    "DrupalInstanceId" : {
+      "Description" : "Drupal instance ID",
+      "Value" : { "Ref" : "DrupalInstance" }
+    },
+    "DrupalInstancePublicIP" : {
+      "Description" : "Drupal instance public IP",
+      "Value" : { "Fn::GetAtt" : ["DrupalInstance", "PublicIp"] }
+    },
+    "DrupalSSH" : {
+      "Value" : { "Fn::Join" : [ "", ["ssh centos@", { "Fn::GetAtt" : ["DrupalInstance", "PublicIp"] } , " -i {YOUR_PUBLIC_KEY_FILE}" ]]},
+      "Description" : "ssh command"
+    },
+    "DrupalURL" : {
+      "Value" : { "Fn::Join" : [ "", ["http://", { "Fn::GetAtt" : ["DrupalInstance", "PublicIp"] }  ,":80" ]]},
+      "Description" : "Drupal UI/API endpoint"
+    }
+
+  }
+
+}
+

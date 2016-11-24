@@ -1,0 +1,54 @@
+{
+  "variables": {
+    "aws_access_key": "",
+    "aws_secret_key": "",
+    "default_ssh_user": "centos",
+    "image_repo": "741723870547.dkr.ecr.eu-central-1.amazonaws.com",
+    "image_name": "drupal",
+    "image_version": "2"
+  },
+  "builders": [{
+    "type": "amazon-ebs",
+    "access_key": "{{user `aws_access_key`}}",
+    "secret_key": "{{user `aws_secret_key`}}",
+    "iam_instance_profile": "ECR-pull",
+    "region": "eu-central-1",
+    "source_ami": "ami-9bf712f4",
+    "instance_type": "t2.micro",
+    "associate_public_ip_address": true,
+    "ssh_username": "{{user `default_ssh_user`}}",
+    "ssh_pty": true,
+    "user_data_file": "user_data.build",
+    "ami_name": "drupal-{{user `image_version`}}",
+    "launch_block_device_mappings": [
+      {
+        "device_name": "/dev/sda1",
+        "volume_size": 8,
+        "volume_type": "gp2",
+        "delete_on_termination": true
+      }
+    ],
+    "tags": {
+      "image_version": "{{user `image_version`}}",
+      "BuildUUID": "{{user `build_uuid`}}"
+    }
+  }],
+  "provisioners": [
+    {
+      "type": "shell",
+      "environment_vars": [
+        "IMAGE_REPO={{user `image_repo`}}",
+        "IMAGE_NAME={{user `image_name`}}",
+        "VERSION={{user `image_version`}}",
+        "ENVIRONMENT=aws"
+      ],
+      "scripts": [
+        "scripts/docker_install.sh",
+        "scripts/container_run.sh",
+        "scripts/cleanup.sh"
+      ],
+      "execute_command": "echo {{user `default_ssh_user`}} | {{.Vars}} sudo -S -E bash '{{.Path}}'"
+    }
+  ]
+}
+
